@@ -26,15 +26,68 @@ The project went through two architectures:
    an inference-only copy (without the augmentation block) is what gets saved to
    `output/cnn-model.h5`.
 
-## Setup
+## Installation
+
+Repository: https://github.com/enescaglarr/Document-Type-Classifier
+
+### Prerequisites
+
+- **Python 3.10 or newer** (developed and tested on 3.13) — check with `python3 --version`
+- **Git**
+- ~2 GB free disk space (TensorFlow wheel + virtual environment)
+- Optional: a GPU is *not* required. Inference runs fine on CPU; retraining on CPU takes
+  several minutes per epoch, on Apple Silicon or an NVIDIA GPU it is considerably faster.
+
+### 1. Clone the repository
 
 ```bash
-python3 -m venv .venv           # Python 3.10+ works; developed on 3.13
+git clone https://github.com/enescaglarr/Document-Type-Classifier.git
+cd Document-Type-Classifier
+```
+
+### 2. Create and activate a virtual environment
+
+macOS / Linux:
+
+```bash
+python3 -m venv .venv
 source .venv/bin/activate
+```
+
+Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+Your prompt should now be prefixed with `(.venv)`.
+
+### 3. Install the dependencies
+
+```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+This installs TensorFlow, Flask, gunicorn, Pillow and NumPy. The TensorFlow download is large
+(several hundred MB), so the first install can take a few minutes.
+
+### 4. Verify the installation
+
+```bash
+python -c "import tensorflow as tf, flask; print('TensorFlow', tf.__version__, '| Flask', flask.__version__)"
+```
+
+The **trained model ships with the repository** (`output/cnn-model.h5` and
+`output/class_names.json`), so you can classify images immediately — no dataset or training
+step is needed to get started. The dataset is only required for the *Test* and *Train* features
+(see [Data](#data)).
+
 ## Run
+
+All commands below assume the virtual environment is activated and you are in the repository
+root.
 
 ### Web app (recommended)
 
@@ -42,29 +95,68 @@ pip install -r requirements.txt
 python src/app.py
 ```
 
-Starts a local server at http://localhost:5001 (opens your browser automatically) with three tabs:
+What happens:
 
-- **Classify** — drag & drop an image, get the predicted class with per-class confidence bars.
-- **Test** — one-click evaluation on the held-out test set: overall accuracy, per-class breakdown,
-  and the list of misclassified images.
-- **Train** — retrains the model from `input/Training_data/` with live epoch progress. The previous
-  model is backed up to `output/cnn-model-prev.h5` and the new one goes live without a restart.
+1. The model is loaded from `output/cnn-model.h5`.
+2. A local server starts on port **5001** and your default browser opens
+   http://localhost:5001 automatically (open it manually if it doesn't).
+3. Stop the server with `Ctrl+C`.
+
+The UI has three tabs:
+
+- **Classify** — drag & drop an image (JPG/PNG), get the predicted class with per-class
+  confidence bars. Works out of the box with the shipped model.
+- **Test** — one-click evaluation on the held-out test set in `input/Testing_Data/`: overall
+  accuracy, per-class breakdown, and the list of misclassified images. Requires the dataset.
+- **Train** — retrains the model from `input/Training_data/` with live epoch progress. The
+  previous model is backed up to `output/cnn-model-prev.h5` and the new one goes live without a
+  restart. Requires the dataset.
+
+To change the port, edit `PORT = 5001` near the top of `src/app.py`. The server binds to
+`0.0.0.0`, so it is also reachable from other machines on your network at
+`http://<your-ip>:5001`.
 
 ### REST API
 
-`POST /get-image-class` with a multipart `file` field:
+The web app also exposes a JSON endpoint. `POST /get-image-class` with a multipart `file`
+field:
 
 ```bash
 curl -X POST http://localhost:5001/get-image-class -F "file=@path/to/document.jpg"
 # {"class": "turkish_id", "confidence(%)": 99.8, "scores": {...}}
 ```
 
-For a production-style server: `cd src/ML_Pipeline && ./wsgi.sh` (gunicorn).
+Python example:
+
+```python
+import requests
+
+with open("path/to/document.jpg", "rb") as f:
+    r = requests.post("http://localhost:5001/get-image-class", files={"file": f})
+print(r.json())
+```
+
+### Production-style server (gunicorn)
+
+For a multi-worker server without the browser auto-open:
+
+```bash
+cd src/ML_Pipeline
+./wsgi.sh          # gunicorn -b 0.0.0.0:5001 -w 2 -t 60 wsgi:app
+```
+
+Each worker loads its own copy of the model. On Windows (where gunicorn is not available) use
+the web app command above instead.
 
 ### CLI (legacy)
 
-`cd src && python Engine.py` — interactive menu with train (0), predict/evaluate (1),
-and deploy (2) modes. The web app supersedes it but it still works.
+```bash
+cd src
+python Engine.py
+```
+
+Interactive menu with train (`0`), predict/evaluate (`1`), and deploy (`2`) modes. The web app
+supersedes it but it still works.
 
 ### TensorFlow.js export
 
@@ -75,6 +167,16 @@ python src/export_tfjs.py [output_dir]
 Exports the trained model to TensorFlow.js Layers format (float16-quantized, ~5 MB) for fully
 in-browser inference — no server sees the uploaded image. Re-run after every retraining.
 (The MobileNetV2 export bridges Keras 3 weights into a tf-keras rebuild; see the script.)
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `No model found at .../output/cnn-model.h5` | Make sure you cloned the full repo (the model is tracked in git). Otherwise add the dataset and retrain via the **Train** tab. |
+| `Address already in use` on port 5001 | Another process is using the port — stop it, or change `PORT` in `src/app.py`. |
+| Test/Train tab reports missing data | Create the `input/` directory with the layout described in [Data](#data). |
+| Slow first prediction | TensorFlow warms up on the first inference; subsequent requests are fast. |
+| `pip install` fails on TensorFlow | Confirm you are on Python 3.10–3.13 and a 64-bit interpreter; upgrade pip first. |
 
 ## Data
 
