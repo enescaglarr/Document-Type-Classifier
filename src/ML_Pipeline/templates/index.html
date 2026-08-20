@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document Type Classifier</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #1a2233;
+    --muted: #6b7486;
+    --border: #dfe4ee;
+    --accent: #2f6df6;
+    --accent-soft: #e8efff;
+    --ok: #1d9d5f;
+    --err: #d64545;
+    --bar-track: #edf0f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10141d;
+      --card: #1a202e;
+      --text: #e8ecf5;
+      --muted: #96a0b5;
+      --border: #2a3245;
+      --accent: #5b8cff;
+      --accent-soft: #22304d;
+      --ok: #3ecf8e;
+      --err: #ff7a7a;
+      --bar-track: #232b3d;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 24px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(15, 25, 55, 0.08);
+    width: 100%;
+    max-width: 620px;
+    padding: 32px;
+  }
+  h1 { font-size: 1.35rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; }
+
+  .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 22px; }
+  .tab {
+    padding: 9px 16px;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .hint { color: var(--muted); font-size: 0.88rem; margin-bottom: 16px; }
+
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: var(--accent-soft); }
+  .dropzone .icon { font-size: 2rem; margin-bottom: 8px; }
+  .dropzone p { color: var(--muted); font-size: 0.9rem; }
+  .dropzone p strong { color: var(--accent); }
+  #file-input { display: none; }
+  .preview-wrap { display: none; margin-top: 20px; text-align: center; }
+  .preview-wrap img { max-width: 100%; max-height: 240px; border-radius: 10px; border: 1px solid var(--border); }
+  .status { margin-top: 16px; color: var(--muted); font-size: 0.9rem; text-align: center; display: none; }
+  .error { color: var(--err); }
+  .result { display: none; margin-top: 20px; }
+  .verdict { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  .verdict .label { font-size: 1.1rem; font-weight: 650; }
+  .verdict .conf { color: var(--ok); font-weight: 600; font-size: 0.95rem; }
+  .bar-row { margin-bottom: 10px; }
+  .bar-head { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; }
+  .bar-track { height: 8px; border-radius: 4px; background: var(--bar-track); overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; background: var(--border); width: 0; transition: width 0.5s ease; }
+  .bar-row.top .bar-fill { background: var(--accent); }
+  .bar-row.top .bar-head { color: var(--text); font-weight: 600; }
+
+  .btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); width: 100%; margin-top: 20px; }
+  .btn.ghost:hover { background: var(--accent-soft); }
+
+  .big-acc { font-size: 2.2rem; font-weight: 700; margin: 14px 0 2px; }
+  .big-acc small { font-size: 1rem; color: var(--muted); font-weight: 500; }
+  .section-label { font-size: 0.82rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 18px 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  td.num, th.num { text-align: right; }
+
+  .progress-track { height: 10px; border-radius: 5px; background: var(--bar-track); overflow: hidden; margin: 14px 0 8px; }
+  .progress-fill { height: 100%; border-radius: 5px; background: var(--accent); width: 0; transition: width 0.4s ease; }
+  .epoch-line { font-size: 0.88rem; color: var(--muted); }
+  .done-note { margin-top: 14px; color: var(--ok); font-weight: 600; font-size: 0.92rem; }
+  .warn { background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; font-size: 0.86rem; color: var(--muted); margin-bottom: 16px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Document Type Classifier</h1>
+    <p class="subtitle">CNN model &middot; driving license / social security / Turkish ID / passport / other documents</p>
+
+    <div class="tabs">
+      <button class="tab active" data-panel="classify">Classify</button>
+      <button class="tab" data-panel="test">Test</button>
+      <button class="tab" data-panel="train">Train</button>
+    </div>
+
+    <!-- ============ CLASSIFY ============ -->
+    <div class="panel active" id="panel-classify">
+      <div class="dropzone" id="dropzone">
+        <div class="icon">&#128196;</div>
+        <p><strong>Choose an image</strong> or drag &amp; drop it here</p>
+      </div>
+      <input type="file" id="file-input" accept="image/*">
+      <div class="preview-wrap" id="preview-wrap"><img id="preview" alt="Uploaded document preview"></div>
+      <p class="status" id="classify-status"></p>
+      <div class="result" id="result">
+        <div class="verdict">
+          <span class="label" id="verdict-label"></span>
+          <span class="conf" id="verdict-conf"></span>
+        </div>
+        <div id="bars"></div>
+        <button class="btn ghost" id="again">Classify another document</button>
+      </div>
+    </div>
+
+    <!-- ============ TEST ============ -->
+    <div class="panel" id="panel-test">
+      <p class="hint">Evaluates the current model on the 150 held-out test images (50 per class).</p>
+      <button class="btn" id="eval-btn">Run evaluation</button>
+      <p class="status" id="eval-status"></p>
+      <div id="eval-result" style="display:none">
+        <div class="big-acc"><span id="eval-acc"></span> <small id="eval-count"></small></div>
+        <div class="section-label">Per class</div>
+        <div id="eval-classes"></div>
+        <div class="section-label">Misclassified images</div>
+        <table>
+          <thead><tr><th>Image</th><th>Predicted as</th><th class="num">Confidence</th></tr></thead>
+          <tbody id="eval-misses"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ TRAIN ============ -->
+    <div class="panel" id="panel-train">
+      <div class="warn">Retrains the CNN from scratch on the 600 training images (30 epochs, roughly 3&ndash;5 minutes on this machine). The current model file is backed up as <code>cnn-model-prev.h5</code>, then replaced. The page keeps serving the old model until training finishes.</div>
+      <button class="btn" id="train-btn">Start training</button>
+      <p class="status" id="train-status-msg"></p>
+      <div id="train-progress" style="display:none">
+        <div class="progress-track"><div class="progress-fill" id="train-fill"></div></div>
+        <p class="epoch-line" id="train-epoch"></p>
+        <p class="epoch-line" id="train-metrics"></p>
+        <p class="done-note" id="train-done" style="display:none"></p>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const DISPLAY_NAMES = {
+    driving_license: "Driving License",
+    social_security: "Social Security Card",
+    turkish_id: "Turkish ID Card",
+    passport: "Passport",
+    others: "Other Document"
+  };
+  const pretty = c => DISPLAY_NAMES[c] || c;
+  const $ = id => document.getElementById(id);
+
+  /* ---------- tabs ---------- */
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+      tab.classList.add("active");
+      $("panel-" + tab.dataset.panel).classList.add("active");
+    });
+  });
+
+  /* ---------- classify ---------- */
+  const dropzone = $("dropzone"), fileInput = $("file-input");
+  dropzone.addEventListener("click", () => fileInput.click());
+  dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("dragover"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+  dropzone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    if (e.dataTransfer.files.length) classify(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", () => { if (fileInput.files.length) classify(fileInput.files[0]); });
+  $("again").addEventListener("click", () => {
+    $("result").style.display = "none";
+    $("preview-wrap").style.display = "none";
+    dropzone.style.display = "block";
+    fileInput.value = "";
+  });
+
+  async function classify(file) {
+    $("preview").src = URL.createObjectURL(file);
+    $("preview-wrap").style.display = "block";
+    dropzone.style.display = "none";
+    $("result").style.display = "none";
+    const st = $("classify-status");
+    st.style.display = "block";
+    st.classList.remove("error");
+    st.textContent = "Classifying…";
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const res = await fetch("/get-image-class", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || ("Server error " + res.status));
+      st.style.display = "none";
+      renderClassify(data);
+    } catch (err) {
+      st.classList.add("error");
+      st.textContent = err.message;
+    }
+  }
+
+  function renderClassify(data) {
+    $("verdict-label").textContent = pretty(data["class"]);
+    $("verdict-conf").textContent = data["confidence(%)"].toFixed(1) + "% confidence";
+    const barsEl = $("bars");
+    barsEl.innerHTML = "";
+    const sorted = Object.entries(data.scores).sort((a, b) => b[1] - a[1]);
+    for (const [cls, pct] of sorted) {
+      const row = document.createElement("div");
+      row.className = "bar-row" + (cls === data["class"] ? " top" : "");
+      row.innerHTML =
+        `<div class="bar-head"><span>${pretty(cls)}</span><span>${pct.toFixed(1)}%</span></div>` +
+        `<div class="bar-track"><div class="bar-fill"></div></div>`;
+      barsEl.appendChild(row);
+      requestAnimationFrame(() => { row.querySelector(".bar-fill").style.width = Math.max(pct, 1) + "%"; });
+    }
+    $("result").style.display = "block";
+  }
+
+  /* ---------- test / evaluate ---------- */
+  $("eval-btn").addEventListener("click", async () => {
+    const st = $("eval-status");
+    $("eval-result").style.display = "none";
+    $("eval-btn").disabled = true;
+    st.style.display = "block";
+    st.classList.remove("error");
+    st.textContent = "Evaluating 150 images…";
+    try {
+      const res = await fetch("/evaluate", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Server error");
+      pollEval();
+    } catch (err) {
+      st.classList.add("error");
+      st.textContent = err.message;
+      $("eval-btn").disabled = false;
+    }
+  });
+
+  async function pollEval() {
+    const st = $("eval-status");
+    try {
+      const s = (await (await fetch("/status")).json()).evaluate;
+      if (s.state === "running") return setTimeout(pollEval, 800);
+      $("eval-btn").disabled = false;
+      if (s.state === "error") throw new Error(s.message);
+      st.style.display = "none";
+      renderEval(s);
+    } catch (err) {
+      st.classList.add("error");
+      st.textContent = err.message;
+      $("eval-btn").disabled = false;
+    }
+  }
+
+  function renderEval(s) {
+    $("eval-acc").textContent = s.overall.accuracy.toFixed(1) + "%";
+    $("eval-count").textContent = `(${s.overall.correct}/${s.overall.total} correct)`;
+    const classes = $("eval-classes");
+    classes.innerHTML = "";
+    for (const c of s.per_class) {
+      const pct = 100 * c.correct / c.total;
+      const row = document.createElement("div");
+      row.className = "bar-row top";
+      row.innerHTML =
+        `<div class="bar-head"><span>${pretty(c.name)}</span><span>${c.correct}/${c.total}</span></div>` +
+        `<div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>`;
+      classes.appendChild(row);
+    }
+    const tbody = $("eval-misses");
+    tbody.innerHTML = "";
+    for (const m of s.misclassified) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${m.file}</td><td>${pretty(m.predicted)}</td><td class="num">${m.confidence.toFixed(0)}%</td>`;
+      tbody.appendChild(tr);
+    }
+    if (!s.misclassified.length) tbody.innerHTML = `<tr><td colspan="3">None &mdash; perfect score!</td></tr>`;
+    $("eval-result").style.display = "block";
+  }
+
+  /* ---------- train ---------- */
+  $("train-btn").addEventListener("click", async () => {
+    const st = $("train-status-msg");
+    st.style.display = "none";
+    st.classList.remove("error");
+    $("train-btn").disabled = true;
+    $("train-done").style.display = "none";
+    $("train-progress").style.display = "block";
+    $("train-epoch").textContent = "Preparing data…";
+    $("train-metrics").textContent = "";
+    $("train-fill").style.width = "0%";
+    try {
+      const res = await fetch("/train", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Server error");
+      pollTrain();
+    } catch (err) {
+      st.style.display = "block";
+      st.classList.add("error");
+      st.textContent = err.message;
+      $("train-btn").disabled = false;
+    }
+  });
+
+  async function pollTrain() {
+    const st = $("train-status-msg");
+    try {
+      const s = (await (await fetch("/status")).json()).train;
+      if (s.state === "running" || s.state === "done") {
+        const epoch = s.epoch || 0, total = s.epochs || 30;
+        $("train-fill").style.width = (100 * epoch / total) + "%";
+        $("train-epoch").textContent = epoch ? `Epoch ${epoch} / ${total}` : "Preparing data…";
+        const h = (s.history || []).slice(-1)[0];
+        if (h) $("train-metrics").textContent =
+          `accuracy ${(100 * h.accuracy).toFixed(1)}% · validation ${(100 * h.val_accuracy).toFixed(1)}%`;
+      }
+      if (s.state === "running") return setTimeout(pollTrain, 1000);
+      $("train-btn").disabled = false;
+      if (s.state === "error") throw new Error(s.message);
+      if (s.state === "done") {
+        $("train-fill").style.width = "100%";
+        $("train-done").style.display = "block";
+        $("train-done").textContent = "Training complete — the new model is now live. Check it on the Test tab.";
+      }
+    } catch (err) {
+      st.style.display = "block";
+      st.classList.add("error");
+      st.textContent = err.message;
+      $("train-btn").disabled = false;
+    }
+  }
+
+  /* resume progress if training is already running (e.g. page reload) */
+  fetch("/status").then(r => r.json()).then(s => {
+    if (s.train && s.train.state === "running") {
+      $("train-btn").disabled = true;
+      $("train-progress").style.display = "block";
+      pollTrain();
+    }
+  }).catch(() => {});
+</script>
+</body>
+</html>

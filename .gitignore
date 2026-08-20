@@ -1,0 +1,23 @@
+# Dataset: not published. Contains third-party dataset images (MIDV-500/2019
+# specimen documents), scraped images with real-looking personal data, and
+# local-only real test photos — none of it belongs in the repo.
+input/
+
+# Runtime artifact written by the legacy Flask API on every request
+output/api_input.jpg
+
+# Model backups (the shipped model is output/cnn-model.h5)
+output/cnn-model-prev.h5
+cnn-model-backup.h5
+
+# Python
+__pycache__/
+*.pyc
+.venv*/
+venv/
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
