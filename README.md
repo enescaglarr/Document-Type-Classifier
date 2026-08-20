@@ -26,10 +26,6 @@ The project went through two architectures:
    an inference-only copy (without the augmentation block) is what gets saved to
    `output/cnn-model.h5`.
 
-## Installation
-
-Repository: https://github.com/enescaglarr/Document-Type-Classifier
-
 ### Prerequisites
 
 - **Python 3.10 or newer** (developed and tested on 3.13) — check with `python3 --version`
