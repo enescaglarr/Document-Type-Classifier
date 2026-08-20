@@ -3,6 +3,11 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 import tensorflow as tf
+import os
+import tempfile
+
+# Fixed seed so that two training runs on the same data give the same model.
+SEED = 123
 
 
 # Build an inference-only copy sharing the trained layers. The augmentation
@@ -15,9 +20,19 @@ def inference_model(model):
     return inf
 
 
-# Function to train ML model
+# Function to train ML model. Keeps the weights of the epoch with the best
+# validation accuracy instead of whatever the last epoch happened to produce.
 def train(model, train_ds, val_ds, epochs=12, callbacks=None):
-    model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=callbacks)
+    fd, ckpt = tempfile.mkstemp(suffix=".weights.h5")
+    os.close(fd)
+    best = tf.keras.callbacks.ModelCheckpoint(
+        ckpt, monitor="val_accuracy", mode="max",
+        save_best_only=True, save_weights_only=True, verbose=0)
+    model.fit(train_ds, validation_data=val_ds, epochs=epochs,
+              callbacks=list(callbacks or []) + [best])
+    if os.path.getsize(ckpt) > 0:
+        model.load_weights(ckpt)
+    os.remove(ckpt)
     return model
 
 
@@ -27,6 +42,7 @@ def train(model, train_ds, val_ds, epochs=12, callbacks=None):
 # from-scratch 3-block CNN plateaued once visually similar classes were added
 # (Turkish ID vs. passport data pages).
 def fit(train_ds, val_ds, class_names, epochs=12, callbacks=None):
+    tf.keras.utils.set_random_seed(SEED)  # seeds python, numpy and tf RNGs
     num_classes = len(class_names)
 
     data_augmentation = keras.Sequential(

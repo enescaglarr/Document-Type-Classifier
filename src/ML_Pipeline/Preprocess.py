@@ -6,7 +6,7 @@ from ML_Pipeline import Utils
 def cache_data(train_ds, val_ds):
     AUTOTUNE = tf.data.AUTOTUNE
 
-    train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
+    train_ds = train_ds.cache().shuffle(1000, seed=123).prefetch(buffer_size=AUTOTUNE)
     val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
     return train_ds, val_ds
 

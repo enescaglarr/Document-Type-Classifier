@@ -10,7 +10,10 @@ Classifies document images into five types for automated document routing:
 | `turkish_id` | Turkish identity cards (front & back) |
 | `others` | Invoices, receipts, utility bills, other documents |
 
-**Test set accuracy: 97.5%** (278/285 held-out images, per-class: 45/50 · 60/60 · 50/50 · 75/75 · 48/50).
+**Test set accuracy: 97.5%** (278/285 held-out images; per-class: driving license 46/50 ·
+others 47/50 · passport 60/60 · social security 50/50 · Turkish ID 75/75). The test set shares no
+files with the training set (exact duplicates were removed), and training is seeded, so
+retraining from the same data reproduces this number.
 
 ## Model
 
@@ -24,7 +27,9 @@ The project went through two architectures:
    fine-tuning phase that unfreezes the top 50 base layers at a low learning rate (BatchNorm kept
    frozen). Augmentation (flip/rotation/zoom/brightness/contrast) lives inside the training model;
    an inference-only copy (without the augmentation block) is what gets saved to
-   `output/cnn-model.h5`.
+   `output/cnn-model.h5`. Training is deterministic (fixed seed for the train/val split, shuffling,
+   augmentation and weight init) and each phase keeps the weights of its best-validation epoch
+   rather than the last one, so two runs on the same data produce the same model.
 
 ### Prerequisites
 
